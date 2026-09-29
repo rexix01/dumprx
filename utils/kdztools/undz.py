@@ -671,7 +671,7 @@ class UNDZFile(dz.DZFile, UNDZUtils):
                         self.sliceIdx[self.chunks[-1].getSliceName()] = slice
 
                 except gpt.NoGPT as err:
-                        print("[!] Unable to find GPT in DZ file: {:s}".format(err))
+                        print("[!] Unable to find GPT in DZ file: {!s}".format(err))
                         pass
 
                 for chunk in self.chunks:

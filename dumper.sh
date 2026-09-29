@@ -113,6 +113,7 @@ LPUNPACK="${UTILSDIR}"/lpunpack
 SPLITUAPP="${UTILSDIR}"/splituapp.py
 PACEXTRACTOR="${UTILSDIR}"/pacextractor/python/pacExtractor.py
 NB0_EXTRACT="${UTILSDIR}"/nb0-extract
+KDZTOOL="${UTILSDIR}"/bin/kdz-tool
 KDZ_EXTRACT="${UTILSDIR}"/kdztools/unkdz.py
 DZ_EXTRACT="${UTILSDIR}"/kdztools/undz.py
 RUUDECRYPT="${UTILSDIR}"/RUU_Decrypt_Tool
@@ -368,12 +369,21 @@ if echo "${FILEPATH}" | grep -q ".*.kdz" || [[ "${EXTENSION}" == "kdz" ]]; then
 	printf "LG KDZ Detected.\n"
 	# Either Move Downloaded/Re-Loaded File Or Copy Local File
 	mv -f "${INPUTDIR}"/"${FILE}" "${TMPDIR}"/ 2>/dev/null || cp -a "${FILEPATH}" "${TMPDIR}"/
-	uv run -q --with zstandard "${KDZ_EXTRACT}" -f "${FILE}" -x -o "./" 2>/dev/null
-	DZFILE=$(ls -- *.dz)
-	printf "Extracting All Partitions As Individual Images.\n"
-	uv run -q --with zstandard "${DZ_EXTRACT}" -f "${DZFILE}" -s -o "./" 2>/dev/null
-	rm -f "${TMPDIR}"/"${FILE}" "${TMPDIR}"/"${DZFILE}" 2>/dev/null
-	# dzpartitions="gpt_main persist misc metadata vendor system system_other product userdata gpt_backup tz boot dtbo vbmeta cust oem odm factory modem NON-HLOS"
+	if [[ -x "${KDZTOOL}" ]]; then
+		printf "Extracting All Partitions Using KDZTool...\n"
+		"${KDZTOOL}" extract "${TMPDIR}/${FILE}" -d "${TMPDIR}" --no-verify
+	else
+		uv run -q --with zstandard "${KDZ_EXTRACT}" -f "${FILE}" -x -o "./" 2>/dev/null
+		DZFILE=$(ls -- *.dz)
+		printf "Extracting All Partitions As Individual Images.\n"
+		uv run -q --with zstandard "${DZ_EXTRACT}" -f "${DZFILE}" -s -o "./" 2>/dev/null
+	fi
+	rm -f "${TMPDIR}"/"${FILE}" "${TMPDIR}"/*.dz 2>/dev/null
+	find "${TMPDIR}" -maxdepth 1 -type f -name "[0-9]*.*.img" | while read -r i; do
+		base=$(basename "${i}")
+		name="${base#*.}"
+		mv "${i}" "${TMPDIR}/${name}" 2>/dev/null
+	done
 	find "${TMPDIR}" -maxdepth 1 -type f -name "*.image" | while read -r i; do mv "${i}" "${i/.image/.img}" 2>/dev/null; done
 	find "${TMPDIR}" -maxdepth 1 -type f -name "*_a.img" | while read -r i; do mv "${i}" "${i/_a.img/.img}" 2>/dev/null; done
 	find "${TMPDIR}" -maxdepth 1 -type f -name "*_b.img" -exec rm -rf {} \;
